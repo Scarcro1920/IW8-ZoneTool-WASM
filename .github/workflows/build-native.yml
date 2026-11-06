@@ -1,0 +1,61 @@
+name: Build native IW8 ZoneTool (Windows)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "IW8-zonetool-main.zip"
+      - ".github/workflows/build-native.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout WASM project
+        uses: actions/checkout@v4
+
+      - name: Extract original ZoneTool source
+        shell: pwsh
+        run: |
+          Expand-Archive -LiteralPath "IW8-zonetool-main.zip" -DestinationPath "$env:RUNNER_TEMP\zt-source" -Force
+          $source = Join-Path "$env:RUNNER_TEMP\zt-source" "IW8-zonetool-main"
+          if (!(Test-Path (Join-Path $source "xmake.lua"))) {
+            throw "xmake.lua is missing from the bundled original source archive"
+          }
+          "ZT_SOURCE=$source" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Set up MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Set up xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+
+      - name: Build native compiler
+        shell: pwsh
+        run: |
+          Set-Location $env:ZT_SOURCE
+          xmake f -p windows -a x64 -m release
+          xmake -y
+          $exe = Join-Path $env:ZT_SOURCE "xmake-out\x64\Release\iw8-zonetool.exe"
+          if (!(Test-Path $exe)) {
+            throw "Native compiler was not produced at $exe"
+          }
+          New-Item -ItemType Directory -Force -Path "$env:GITHUB_WORKSPACE\native-dist" | Out-Null
+          Copy-Item $exe "$env:GITHUB_WORKSPACE\native-dist\iw8-zonetool.exe"
+          Copy-Item (Join-Path $env:ZT_SOURCE "docs\INPUT_FORMAT.md") "$env:GITHUB_WORKSPACE\native-dist\INPUT_FORMAT.md"
+          Copy-Item (Join-Path $env:ZT_SOURCE "docs\USAGE.md") "$env:GITHUB_WORKSPACE\native-dist\USAGE.md"
+
+      - name: Upload native compiler
+        uses: actions/upload-artifact@v4
+        with:
+          name: iw8-zonetool-windows-x64
+          path: native-dist/
+          if-no-files-found: error
+          retention-days: 30
