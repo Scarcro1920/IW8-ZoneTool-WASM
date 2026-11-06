@@ -24,7 +24,7 @@ static bool has_key(const std::string& json, const std::string& key) {
 }
 extern "C" {
 EMSCRIPTEN_KEEPALIVE const char* ztw_version() {
-    return "IW8 ZoneTool WASM 0.3 (strict native-dump preflight)";
+    return "IW8 ZoneTool WASM 0.4 (Replay graybox dump preflight)";
 }
 EMSCRIPTEN_KEEPALIVE int ztw_check_dump(const char* root, const char* mapName) {
     g_report.clear();
@@ -44,6 +44,7 @@ EMSCRIPTEN_KEEPALIVE int ztw_check_dump(const char* root, const char* mapName) {
     const fs::path renderPath = mp / (asset + ".render.json");
     const fs::path lightingPath = mp / (asset + ".lighting.json");
     const fs::path havokPath = mp / (asset + ".havok");
+    const fs::path mwcollPath = mp / (asset + ".mwcoll");
 
     bool ok = true;
     g_report = "IW8 ZoneTool — vérification stricte du dump\n";
@@ -57,9 +58,11 @@ EMSCRIPTEN_KEEPALIVE int ztw_check_dump(const char* root, const char* mapName) {
     check(ents, "entités IW8");
     check(renderPath, "render.json");
     check(lightingPath, "lighting.json");
-    const bool hasHavok = is_file(havokPath);
-    g_report += (hasHavok ? "[OK] " : "[OPTIONNEL] ");
-    g_report += "collision .havok (sinon fournir Replay + MWCOLL au compilateur natif)\\n";
+    const bool hasCollision = is_file(havokPath) || is_file(mwcollPath);
+    g_report += (hasCollision ? "[OK] " : "[OPTIONNEL] ");
+    g_report += hasHavok ? "collision .havok présente\\n" :
+                is_file(mwcollPath) ? "entrée MWCOLL présente (bake Replay requis)\\n" :
+                "collision absente : ajouter MWCOLL ou Havok avant build-map\\n";
 
     const std::string render = read_text(renderPath);
     if (!render.empty()) {
