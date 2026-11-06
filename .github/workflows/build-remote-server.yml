@@ -1,0 +1,30 @@
+name: Build IW8 remote compiler server
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "server/**"
+      - ".github/workflows/build-remote-server.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Publish Windows x64 server
+        shell: pwsh
+        run: |
+          dotnet publish server/IW8ZoneTool.Server.csproj -c Release -r win-x64 --self-contained false -o publish
+          Copy-Item server/appsettings.example.json publish/appsettings.example.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iw8-zonetool-remote-server-win-x64
+          path: publish/
+          retention-days: 30
