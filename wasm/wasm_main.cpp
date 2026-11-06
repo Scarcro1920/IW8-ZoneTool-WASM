@@ -61,9 +61,9 @@ EMSCRIPTEN_KEEPALIVE int ztw_check_dump(const char* root, const char* mapName) {
     const bool hasHavok = is_file(havokPath);
     const bool hasCollision = hasHavok || is_file(mwcollPath);
     g_report += (hasCollision ? "[OK] " : "[OPTIONNEL] ");
-    g_report += hasHavok ? "collision .havok présente\\n" :
-                is_file(mwcollPath) ? "entrée MWCOLL présente (bake Replay requis)\\n" :
-                "collision absente : ajouter MWCOLL ou Havok avant build-map\\n";
+    g_report += hasHavok ? "collision .havok présente\n" :
+                is_file(mwcollPath) ? "entrée MWCOLL présente (bake Replay requis)\n" :
+                "collision absente : ajouter MWCOLL ou Havok avant build-map\n";
 
     const std::string render = read_text(renderPath);
     if (!render.empty()) {
