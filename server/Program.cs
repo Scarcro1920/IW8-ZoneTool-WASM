@@ -28,10 +28,10 @@ app.Use(async (ctx, next) =>
     var origin = ctx.Request.Headers.Origin.ToString();
     if (!string.IsNullOrEmpty(origin) && allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase))
     {
-        ctx.Response.Headers.AccessControlAllowOrigin = origin;
-        ctx.Response.Headers.AccessControlAllowHeaders = "Authorization, Content-Type";
-        ctx.Response.Headers.AccessControlAllowMethods = "GET, POST, OPTIONS";
-        ctx.Response.Headers.Vary = "Origin";
+        ctx.Response.Headers["Access-Control-Allow-Origin"] = origin;
+        ctx.Response.Headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type";
+        ctx.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS";
+        ctx.Response.Headers["Vary"] = "Origin";
     }
     if (ctx.Request.Method == "OPTIONS") { ctx.Response.StatusCode = 204; return; }
     if (ctx.Request.Path.StartsWithSegments("/api"))
@@ -54,7 +54,8 @@ app.MapPost("/api/jobs", async (HttpRequest request) =>
 {
     if (!File.Exists(exe)) return Results.Problem("Native compiler is not installed on this server.", statusCode: 503);
     if (!File.Exists(replay)) return Results.Problem("Replay executable is not installed on this server.", statusCode: 503);
-    var replayHash = Convert.ToHexString(await SHA256.HashDataAsync(File.OpenRead(replay))).ToLowerInvariant();
+    await using var replayStream = File.OpenRead(replay);
+    var replayHash = Convert.ToHexString(await SHA256.HashDataAsync(replayStream)).ToLowerInvariant();
     if (replayHash != replaySha) return Results.Problem("Configured Replay executable SHA-256 does not match supported Replay 1.20.4.", statusCode: 503);
     if (!request.HasFormContentType) return Results.BadRequest(new { error = "Expected multipart/form-data." });
     var form = await request.ReadFormAsync();
