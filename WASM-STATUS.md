@@ -24,6 +24,14 @@ Les hulls collision sont des boîtes englobantes : c'est une collision graybox a
 
 Les matériaux stock `$default` sont utilisés pour éviter de fabriquer des shaders compilés. Les matériaux custom, techsets, lightmaps et shaders natifs ne sont pas générés.
 
+## Compilation distante depuis le navigateur
+
+Le site possède maintenant une interface de compilation distante : elle envoie le ZIP exporté à un service Windows, suit le job, puis télécharge le ZIP des fastfiles seulement si `build-map` et `validate-output` réussissent.
+
+Le service API est dans `server/`. Il vérifie la clé Bearer, le format de map, les chemins du ZIP, la taille décompressée et le SHA-256 de Replay. Il lance le compilateur natif sur une machine Windows que tu contrôles. Le navigateur ne lance aucun EXE.
+
+Pour déployer le service, suivre `server/README.md` et l'artifact **iw8-zonetool-remote-server-win-x64** de l'action **Build IW8 remote compiler server**. Il faut fournir une machine Windows accessible en HTTPS, le compilateur natif et le Replay exact. Le service distant n'est pas hébergé automatiquement par GitHub Pages : il faut le déployer sur un hôte Windows.
+
 ## Procédure de compilation réelle
 1. Préparer un dump complet conforme à `docs/INPUT_FORMAT.md` (inclus dans l'artifact du compilateur).
 2. Télécharger `iw8-zonetool-windows-x64` depuis le workflow **Build native IW8 ZoneTool (Windows)**.
