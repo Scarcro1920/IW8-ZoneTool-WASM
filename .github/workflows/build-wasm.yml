@@ -8,6 +8,8 @@ on:
       - ".github/workflows/build-wasm.yml"
 permissions:
   contents: read
+  pages: write
+  id-token: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -29,3 +31,27 @@ jobs:
         with:
           name: IW8-ZoneTool-WASM-bootstrap
           path: dist/
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Download site artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: IW8-ZoneTool-WASM-bootstrap
+          path: site
+      - name: Add nojekyll marker
+        run: touch site/.nojekyll
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
