@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IW8 ZoneTool WASM</title>
+<style>
+body{margin:0;background:#10151e;color:#e8edf5;font:14px system-ui;padding:28px}main{max-width:850px;margin:auto}
+h1{color:#79b8ff}section{background:#1a2330;border:1px solid #344256;border-radius:10px;padding:18px;margin:14px 0}
+input,button{padding:10px;border-radius:6px;border:1px solid #45566e;background:#0e1723;color:white}
+button{background:#2367a8;cursor:pointer}pre{white-space:pre-wrap;background:#0b1018;padding:14px;border-radius:7px}
+small{color:#a8b5c7}.warn{color:#ffce77}
+</style></head><body><main>
+<h1>IW8 ZoneTool · WASM</h1>
+<p>Browser-side dump preflight for Replay 1.20 map source files.</p>
+<section><h3>1. Select prepared dump folder</h3>
+<input id="folder" type="file" webkitdirectory multiple>
+<p><small>Expected: map entity text, render/material/techset/lighting JSON and optional collision assets.</small></p>
+<label>Map ID <input id="map" value="mp_example"></label>
+<button id="check">Check dump</button></section>
+<section><h3>Report</h3><pre id="out">Loading WebAssembly module…</pre></section>
+<p class="warn">This is the first WASM porting milestone: it validates the input layout. It does not generate or claim to generate native .ff fastfiles yet. Collision baking and the ZoneTool asset serializers still need to be ported.</p>
+</main>
+<script type="module">
+import createModule from './zonetool.js';
+const out=document.querySelector('#out');
+const Module=await createModule();
+out.textContent=UTF8ToString(Module._ztw_version());
+const files=new Map();
+document.querySelector('#folder').addEventListener('change',e=>{
+ files.clear();
+ for(const f of e.target.files){
+   const rel=f.webkitRelativePath.split('/').slice(1).join('/');
+   files.set('/dump/'+rel,f);
+ }
+ out.textContent=files.size+' files selected. Click Check dump.';
+});
+document.querySelector('#check').addEventListener('click',async()=>{
+ const map=document.querySelector('#map').value.trim();
+ if(!files.size){out.textContent='Select a dump folder first.';return;}
+ for(const [path,file] of files){
+   const dirs=path.split('/').slice(0,-1);let cur='';
+   for(const d of dirs){cur+='/'+d;try{Module.FS.mkdir(cur)}catch{}}
+   Module.FS.writeFile(path,new Uint8Array(await file.arrayBuffer()));
+ }
+ const ok=Module.ccall('ztw_check_dump','number',['string','string'],['/dump',map]);
+ out.textContent=UTF8ToString(Module._ztw_last_report())+'\nResult: '+(ok?'PASS':'FAIL');
+});
+</script></body></html>
