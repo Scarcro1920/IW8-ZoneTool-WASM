@@ -1,0 +1,69 @@
+name: IW8 ZoneTool WASM - Source Audit
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "IW8-zonetool-main.zip"
+      - ".github/workflows/wasm-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install inspection tools
+        run: sudo apt-get update && sudo apt-get install -y unzip ripgrep
+
+      - name: Extract original ZoneTool source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f IW8-zonetool-main.zip
+          mkdir -p work/source
+          unzip -q IW8-zonetool-main.zip -d work/source
+          echo "Archive extracted."
+          find work/source -maxdepth 3 -type f | sort | head -250
+
+      - name: Audit build system and platform dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p report
+          {
+            echo "IW8 ZoneTool WASM portability audit"
+            echo "==================================="
+            echo
+            echo "Top-level files:"
+            find work/source -maxdepth 3 -type f | sort | head -500
+            echo
+            echo "Build-system files:"
+            find work/source -type f \( -name 'xmake.lua' -o -name 'CMakeLists.txt' -o -name '*.vcxproj' -o -name '*.props' -o -name '*.cmake' \) -print
+            echo
+            echo "Windows / graphics / Havok references:"
+            rg -n -i --glob '*.{h,hpp,c,cc,cpp,cxx,inl,lua,cmake,txt}' 'Windows\.h|windows\.h|DirectX|D3D12|DXGI|Havok|hk[A-Z]|CreateFile|WriteFile|ReadFile|HANDLE|__declspec|__fastcall|MSVC|_WIN32' work/source || true
+            echo
+            echo "Main build-map references:"
+            rg -n -i --glob '*.{h,hpp,c,cc,cpp,cxx,lua}' 'build-map|build_map|build_map_command|validate-output' work/source || true
+            echo
+            echo "Third-party dependency directories:"
+            find work/source -maxdepth 4 -type d \( -iname '*havok*' -o -iname '*directx*' -o -iname '*deps*' -o -iname '*third*' -o -iname '*vendor*' \) -print
+          } > report/portability-audit.txt
+
+          echo "Audit complete."
+          sed -n '1,240p' report/portability-audit.txt
+
+      - name: Upload audit report and extracted source
+        uses: actions/upload-artifact@v4
+        with:
+          name: IW8-ZoneTool-WASM-Audit
+          path: |
+            report/portability-audit.txt
+            work/source/
+          if-no-files-found: error
+          retention-days: 14
