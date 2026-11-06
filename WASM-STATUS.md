@@ -1,17 +1,32 @@
-# IW8 ZoneTool WASM — état du port
+# IW8 ZoneTool WASM — état réel du projet
 
-## Éditeur 3D ajouté
-L'interface web inclut maintenant un éditeur de scène 3D Three.js :
-- vue 3D orbitale, zoom, grille et éclairage;
-- création de blocs, murs, rampes, points de spawn, lumières et terrain;
-- sélection, déplacement par coordonnées, échelle, couleur et suppression;
-- sauvegarde/import d'un projet `.ztmap.json`;
-- export préliminaire d'un fichier d'entités.
+## Ce qui fonctionne
+- Éditeur 3D navigateur Three.js : création de blocs, murs, rampes, spawns, lumières et terrains; sélection, édition, caméra, sauvegarde/import de projets.
+- Export des entités et paquet ZIP de préparation géométrique.
+- Module WASM compilé par GitHub Actions.
+- Préflight WASM strict : vérifie les fichiers de base et les champs Replay indispensables (DPVS, probes, définitions, lighting, collision).
+- Compilateur natif Windows x64 construit séparément avec MSVC; il s'agit du vrai compilateur ZoneTool.
+- Lanceur PowerShell : sélection des dossiers, Replay et collision native MWCOLL; lance la compilation puis `validate-output`.
+- Déploiement GitHub Pages activé automatiquement dans le workflow.
 
-Le projet `.ztmap.json` est le format de travail de l'éditeur. Il n'est pas encore un dump ZoneTool natif prêt à compiler.
+## Site
+https://scarcro1920.github.io/IW8-ZoneTool-WASM/
 
-## WASM actuel
-Le module Emscripten compile `wasm/wasm_main.cpp` et vérifie la présence des fichiers d'entrée attendus pour une map. Il ne sérialise pas encore les assets IW8 et ne produit pas de fastfiles.
+## Limite actuelle — pas de faux .ff
+L'export du navigateur est volontairement nommé paquet de préparation (`*_geometry_staging.zip`). Il contient une géométrie grise de travail et un fichier `*.render.geometry-draft.json`, pas un dump Replay compilable.
 
-## Prochaine étape technique
-Porter les sérialiseurs IW8 utilisés par `build-map`, convertir la géométrie de l'éditeur vers le schéma render IW8, générer des définitions material/techset valides, puis traiter la collision Havok Replay. La compilation .ff ne doit être annoncée qu'après validation dans Replay 1.20.
+Un vrai dump Replay doit inclure notamment :
+- render.json conforme, surfaces, topologie DPVS (planes/nodes/cells), probes de réflexion et image de probes;
+- material.json / techset.json natifs, données de shader compilées et images référencées;
+- lighting.json valide;
+- collision Replay TAG0 déjà préparée, ou entrée MWCOLL valide avec le bon exécutable Replay.
+
+Le projet ne génère pas encore automatiquement les données natives DPVS, probes, matériaux/techsets/shaders et textures à partir des simples primitives de l'éditeur. Un fichier Havok fourni est copié dans le paquet mais sa validité n'est pas certifiée par le navigateur.
+
+## Procédure de compilation réelle
+1. Préparer un dump complet conforme à `docs/INPUT_FORMAT.md` (inclus dans l'artifact du compilateur).
+2. Télécharger `iw8-zonetool-windows-x64` depuis le workflow **Build native IW8 ZoneTool (Windows)**.
+3. Placer `Launch-ZoneTool.ps1` à côté de `iw8-zonetool.exe`, lancer le script sous Windows, sélectionner le dump, la sortie, Replay et éventuellement MWCOLL.
+4. Le script lance `build-map`, puis `validate-output`. La réussite de ces deux étapes est le critère de validation du fastfile.
+
+Ne pas considérer le paquet de préparation du navigateur comme une map .ff jouable.
