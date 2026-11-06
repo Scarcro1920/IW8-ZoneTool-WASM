@@ -49,7 +49,8 @@ input,select{width:100%}.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 </aside></div>
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-const $=s=>document.querySelector(s);const view=$('#view'),status=$('#status'),objectsEl=$('#objects');\nconst cubeBtn=$('#cube'),wallBtn=$('#wall'),rampBtn=$('#ramp'),spawnBtn=$('#spawn'),lightBtn=$('#light'),terrainBtn=$('#terrain'),removeBtn=$('#delete'),mapName=$('#mapname'),fileInput=$('#file'),folderInput=$('#folder'),checkBtn=$('#check'),exportEntitiesBtn=$('#exportEntities');
+const $=s=>document.querySelector(s);const view=$('#view'),status=$('#status'),objectsEl=$('#objects');
+const cubeBtn=$('#cube'),wallBtn=$('#wall'),rampBtn=$('#ramp'),spawnBtn=$('#spawn'),lightBtn=$('#light'),terrainBtn=$('#terrain'),removeBtn=$('#delete'),mapName=$('#mapname'),fileInput=$('#file'),folderInput=$('#folder'),checkBtn=$('#check'),exportEntitiesBtn=$('#exportEntities');
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x0b1420);scene.fog=new THREE.Fog(0x0b1420,70,180);
 const camera=new THREE.PerspectiveCamera(55,1,.1,1000);let target=new THREE.Vector3(0,0,0),radius=34,az=.75,el=.82;
 const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;view.prepend(renderer.domElement);
