@@ -12,16 +12,17 @@
 ## Site
 https://scarcro1920.github.io/IW8-ZoneTool-WASM/
 
-## Limite actuelle — pas de faux .ff
-L'export du navigateur est volontairement nommé paquet de préparation (`*_geometry_staging.zip`). Il contient une géométrie grise de travail et un fichier `*.render.geometry-draft.json`, pas un dump Replay compilable.
+## Export natif minimal généré par le navigateur
+L'export produit maintenant `*_iw8_dump.zip` contenant :
+- `render.json` avec matériau stock `$default`, surfaces triangulées, DPVS à une cellule et un arbre AABB couvrant les surfaces;
+- un cubemap et une image array RGBA8 synthétiques pour le probe de réflexion;
+- `lighting.json` avec direction et up normalisés/perpendiculaires;
+- un fichier `MWCOLL12` généré avec un hull boîte englobante par surface exportée, pour que le baker Replay crée le Havok;
+- les entités et un README.
 
-Un vrai dump Replay doit inclure notamment :
-- render.json conforme, surfaces, topologie DPVS (planes/nodes/cells), probes de réflexion et image de probes;
-- material.json / techset.json natifs, données de shader compilées et images référencées;
-- lighting.json valide;
-- collision Replay TAG0 déjà préparée, ou entrée MWCOLL valide avec le bon exécutable Replay.
+Les hulls collision sont des boîtes englobantes : c'est une collision graybox approximative, pas une collision précise des triangles. Les probes sont neutres/synthétiques. Il faut compiler avec l'exécutable Replay exact, puis passer `validate-output`. La génération est conforme aux structures lues par le parser source, mais elle n'est pas déclarée jouable tant que le build natif réel n'a pas réussi sur le dump exporté.
 
-Le projet ne génère pas encore automatiquement les données natives DPVS, probes, matériaux/techsets/shaders et textures à partir des simples primitives de l'éditeur. Un fichier Havok fourni est copié dans le paquet mais sa validité n'est pas certifiée par le navigateur.
+Les matériaux stock `$default` sont utilisés pour éviter de fabriquer des shaders compilés. Les matériaux custom, techsets, lightmaps et shaders natifs ne sont pas générés.
 
 ## Procédure de compilation réelle
 1. Préparer un dump complet conforme à `docs/INPUT_FORMAT.md` (inclus dans l'artifact du compilateur).
