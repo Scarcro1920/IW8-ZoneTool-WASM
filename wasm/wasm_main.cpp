@@ -7,6 +7,7 @@
 #include <fstream>
 
 namespace fs = std::filesystem;
+static std::string g_report;
 
 static std::string readText(const fs::path& p) {
     std::ifstream f(p, std::ios::binary);
@@ -22,10 +23,9 @@ const char* ztw_version() {
 
 EMSCRIPTEN_KEEPALIVE
 int ztw_check_dump(const char* root, const char* mapName) {
-    static std::string report;
-    report.clear();
+    g_report.clear();
     if (!root || !mapName || !*mapName) {
-        report = "ERROR: dump path or map name is empty.";
+        g_report = "ERROR: dump path or map name is empty.";
         return 0;
     }
     const fs::path dir(root);
@@ -41,7 +41,7 @@ int ztw_check_dump(const char* root, const char* mapName) {
     report = "IW8 ZoneTool WASM - dump preflight\n";
     for (const auto& item : required) {
         const bool exists = fs::is_regular_file(dir / item);
-        report += exists ? "[OK] " : "[MISSING] ";
+        g_report += exists ? "[OK] " : "[MISSING] ";
         report += item + "\n";
         ok = ok && exists;
     }
@@ -54,6 +54,6 @@ int ztw_check_dump(const char* root, const char* mapName) {
 
 EMSCRIPTEN_KEEPALIVE
 const char* ztw_last_report() {
-    return report.c_str();
+    return g_report.c_str();
 }
 }
