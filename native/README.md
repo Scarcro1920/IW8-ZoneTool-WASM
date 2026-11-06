@@ -11,13 +11,13 @@ The WASM page is the map editor and browser-side preflight tool. The actual Repl
 
 ## Compile a prepared map
 
-Place `Launch-ZoneTool.ps1` beside `iw8-zonetool.exe`, then run it in Windows PowerShell. It opens dialogs for the prepared dump folder, output folder, and optional Replay executable. The script invokes the real command:
+Place `Launch-ZoneTool.ps1` beside `iw8-zonetool.exe`, then run it in Windows PowerShell. It opens dialogs for the prepared dump folder, output folder, and Replay executable. It verifies the Replay SHA-256 against the exact supported 1.20.4 executable, automatically detects `maps/mp/<map>.d3dbsp.mwcoll` from the browser ZIP, and passes both inputs to the native compiler. The script invokes the real command:
 
 ```text
-iw8-zonetool.exe build-map <dump> <map> -o <output> [--replay <Replay.exe>]
+iw8-zonetool.exe build-map <dump> <map> -o <output> --replay <Replay.exe> --collision <map.d3dbsp.mwcoll>
 ```
 
-The dump must follow the original the `INPUT_FORMAT.md` file included in the downloaded compiler artifact schema and include valid IW8 material/techset data and either a prepared Replay Havok file or native collision inputs as required. Choosing Replay does not magically create missing render/material/techset assets.
+The dump must follow the original the `INPUT_FORMAT.md` file included in the downloaded compiler artifact schema and include valid IW8 material/techset data and either a prepared Replay Havok file or native collision inputs as required. The browser export supplies stock `$default` geometry, a minimal DPVS/probe setup, lighting, entities, and approximate MWCOLL12 collision. The generated collision is a box per surface, so it is suitable only as a graybox starting point; it is not triangle-accurate. Custom materials, techsets, shaders, and baked lightmaps are not generated.
 
 After building, validate the package:
 
