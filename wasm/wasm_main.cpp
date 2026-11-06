@@ -4,22 +4,100 @@
 #include <vector>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 namespace fs = std::filesystem;
 static std::string g_report;
-extern "C" {
-EMSCRIPTEN_KEEPALIVE const char* ztw_version(){return "IW8 ZoneTool WASM 0.2 (graybox dump exporter + preflight)";}
-EMSCRIPTEN_KEEPALIVE int ztw_check_dump(const char* root,const char* mapName){
- g_report.clear();
- if(!root||!mapName||!*mapName){g_report="ERROR: dump path or map name is empty.";return 0;}
- const fs::path dir(root);const std::string base=std::string(mapName)+".d3dbsp";
- const std::vector<std::string> required={std::string(mapName)+"_iw8_ents.txt","maps/mp/"+base+".render.json","maps/mp/"+base+".lighting.json"};
- bool ok=true;g_report="IW8 ZoneTool dump preflight\n";
- for(const auto& item:required){const bool exists=fs::is_regular_file(dir/item);g_report+=(exists?"[OK] ":"[MISSING] ")+item+"\n";ok=ok&&exists;}
- const bool havok=fs::is_regular_file(dir/"maps/mp"/(base+".havok"));
- g_report+=(havok?"[OK] collision Havok present\n":"[WARN] collision Havok absent — native compilation may require Replay collision baking\n");
- g_report+="\n";
- g_report+=ok?"Graybox dump structure is present. Validate its material/collision data with native ZoneTool.\n":"Dump is incomplete.\n";
- return ok?1:0;
+
+static bool is_file(const fs::path& p) {
+    std::error_code ec;
+    return fs::is_regular_file(p, ec) && !ec;
 }
-EMSCRIPTEN_KEEPALIVE const char* ztw_last_report(){return g_report.c_str();}
+static std::string read_text(const fs::path& p) {
+    std::ifstream f(p, std::ios::binary);
+    if (!f) return {};
+    std::ostringstream s;
+    s << f.rdbuf();
+    return s.str();
+}
+static bool has_key(const std::string& json, const std::string& key) {
+    return json.find("\"" + key + "\"") != std::string::npos;
+}
+extern "C" {
+EMSCRIPTEN_KEEPALIVE const char* ztw_version() {
+    return "IW8 ZoneTool WASM 0.3 (strict native-dump preflight)";
+}
+EMSCRIPTEN_KEEPALIVE int ztw_check_dump(const char* root, const char* mapName) {
+    g_report.clear();
+    if (!root || !mapName || !*mapName) {
+        g_report = "ERROR: dump path or map name is empty.";
+        return 0;
+    }
+    const std::string map(mapName);
+    if (map.rfind("mp_", 0) != 0 || map.size() > 15) {
+        g_report = "ERROR: map id must start with mp_ and contain at most 15 characters.";
+        return 0;
+    }
+    const fs::path dir(root);
+    const fs::path mp = dir / "maps" / "mp";
+    const std::string asset = map + ".d3dbsp";
+    const fs::path ents = dir / (map + "_iw8_ents.txt");
+    const fs::path renderPath = mp / (asset + ".render.json");
+    const fs::path materialPath = mp / (asset + ".material.json");
+    const fs::path techsetPath = mp / (asset + ".techset.json");
+    const fs::path lightingPath = mp / (asset + ".lighting.json");
+    const fs::path havokPath = mp / (asset + ".havok");
+
+    bool ok = true;
+    g_report = "IW8 ZoneTool — vérification stricte du dump\n";
+    const auto check = [&](const fs::path& p, const char* label) {
+        const bool found = is_file(p);
+        g_report += (found ? "[OK] " : "[MANQUANT] ");
+        g_report += label;
+        g_report += "\n";
+        if (!found) ok = false;
+    };
+    check(ents, "entités IW8");
+    check(renderPath, "render.json");
+    check(materialPath, "material.json");
+    check(techsetPath, "techset.json");
+    check(lightingPath, "lighting.json");
+    check(havokPath, "collision Havok Replay TAG0");
+
+    const std::string render = read_text(renderPath);
+    if (!render.empty()) {
+        const std::vector<std::string> keys = {
+            "materialDefinition", "surfaces", "dpvs", "reflectionProbes",
+            "reflectionProbeArrayImage"
+        };
+        for (const auto& key : keys) {
+            const bool found = has_key(render, key);
+            g_report += (found ? "[OK] " : "[MANQUANT] ");
+            g_report += "render.";
+            g_report += key;
+            g_report += "\n";
+            if (!found) ok = false;
+        }
+    }
+    const std::string lighting = read_text(lightingPath);
+    if (!lighting.empty()) {
+        for (const auto& key : {std::string("schema"), std::string("intensity"),
+                                std::string("color"), std::string("direction"),
+                                std::string("up")}) {
+            const bool found = has_key(lighting, key);
+            g_report += (found ? "[OK] " : "[MANQUANT] ");
+            g_report += "lighting.";
+            g_report += key;
+            g_report += "\n";
+            if (!found) ok = false;
+        }
+    }
+    g_report += "\n";
+    if (ok) {
+        g_report += "Structure et champs requis présents. La compilation native et validate-output restent obligatoires : ce contrôle ne certifie pas les données binaires, les références de shaders, les textures ni la validité du Havok.\n";
+        return 1;
+    }
+    g_report += "DUMP INCOMPLET : ne pas lancer build-map. L'éditeur web actuel exporte une géométrie grise de préparation, pas encore tous les assets natifs requis.\n";
+    return 0;
+}
+EMSCRIPTEN_KEEPALIVE const char* ztw_last_report() { return g_report.c_str(); }
 }
