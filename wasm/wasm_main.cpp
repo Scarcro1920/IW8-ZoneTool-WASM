@@ -38,15 +38,15 @@ int ztw_check_dump(const char* root, const char* mapName) {
         "maps/mp/" + base + ".lighting.json"
     };
     bool ok = true;
-    report = "IW8 ZoneTool WASM - dump preflight\n";
+    g_report = "IW8 ZoneTool WASM - dump preflight\n";
     for (const auto& item : required) {
         const bool exists = fs::is_regular_file(dir / item);
         g_report += exists ? "[OK] " : "[MISSING] ";
-        report += item + "\n";
+        g_report += item + "\n";
         ok = ok && exists;
     }
-    report += "\n";
-    report += ok
+    g_report += "\n";
+    g_report += ok
       ? "Input files are present. This bootstrap does NOT compile native .ff files yet.\n"
       : "Dump is incomplete. Add the missing files before native compilation.\n";
     return ok ? 1 : 0;
