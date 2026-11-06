@@ -1,0 +1,62 @@
+name: IW8 ZoneTool WASM - Deep Source Audit
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/wasm-deep-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  deep-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract original source
+        run: |
+          set -euo pipefail
+          mkdir -p work/source report
+          unzip -q IW8-zonetool-main.zip -d work/source
+          ROOT="$(find work/source -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+          echo "ROOT=$ROOT" >> "$GITHUB_ENV"
+          echo "Source root: $ROOT"
+
+      - name: Inspect build-map implementation and source layout
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "# Deep source audit"
+            echo
+            echo "## Source files"
+            find "$ROOT/src" -type f | sort
+            echo
+            echo "## Build configuration"
+            sed -n '1,240p' "$ROOT/xmake.lua"
+            echo
+            echo "## build-map references with context"
+            rg -n -C 12 'build-map|build_map|validate-output' "$ROOT/src" || true
+            echo
+            echo "## Platform-specific includes in production source"
+            rg -n -i --glob '*.{h,hpp,c,cc,cpp,cxx,inl}' '#include [<"](Windows|windows|d3d|dxgi|wrl|bcrypt|mfapi|mfreadwrite)' "$ROOT/src" || true
+            echo
+            echo "## OS and graphics API usage in production source"
+            rg -n -i --glob '*.{h,hpp,c,cc,cpp,cxx,inl}' 'CreateFileW|CreateFileA|WriteFile|ReadFile|GetModule|GetProcAddress|HANDLE|HRESULT|D3D12|DXGI|ID3D|BCrypt|CoInitialize|LoadLibrary' "$ROOT/src" || true
+            echo
+            echo "## Havok / Replay references in production source"
+            rg -n -i --glob '*.{h,hpp,c,cc,cpp,cxx,inl}' 'havok|hk[A-Z]|Replay|game_dx12|collision' "$ROOT/src" || true
+            echo
+            echo "## Third party and dependency manifests"
+            find "$ROOT" -maxdepth 4 -type f \( -iname '*json' -o -iname '*lua' -o -iname '*cmake' -o -iname '*txt' \) | sort | head -250
+          } > report/deep-source-audit.md
+          sed -n '1,280p' report/deep-source-audit.md
+
+      - name: Upload deep audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: IW8-ZoneTool-WASM-Deep-Audit
+          path: report/deep-source-audit.md
+          if-no-files-found: error
