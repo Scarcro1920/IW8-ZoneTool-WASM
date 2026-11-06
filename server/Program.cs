@@ -26,7 +26,7 @@ var buildLock = new SemaphoreSlim(1, 1);
 Directory.CreateDirectory(workRoot);
 app.Use(async (ctx, next) =>
 {
-    var origin = ctx.Request.Headers.Origin.ToString();
+    var origin = ctx.Request.Headers["Origin"].ToString();
     if (!string.IsNullOrEmpty(origin) && allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase))
     {
         ctx.Response.Headers["Access-Control-Allow-Origin"] = origin;
@@ -37,7 +37,7 @@ app.Use(async (ctx, next) =>
     if (ctx.Request.Method == "OPTIONS") { ctx.Response.StatusCode = 204; return; }
     if (ctx.Request.Path.StartsWithSegments("/api"))
     {
-        var supplied = ctx.Request.Headers.Authorization.ToString();
+        var supplied = ctx.Request.Headers["Authorization"].ToString();
         if (string.IsNullOrWhiteSpace(token) || token.StartsWith("REPLACE_", StringComparison.Ordinal) ||
             supplied != "Bearer " + token)
         {
