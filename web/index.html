@@ -1,46 +1,97 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>IW8 ZoneTool WASM</title>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IW8 ZoneTool — Map Editor</title>
 <style>
-body{margin:0;background:#10151e;color:#e8edf5;font:14px system-ui;padding:28px}main{max-width:850px;margin:auto}
-h1{color:#79b8ff}section{background:#1a2330;border:1px solid #344256;border-radius:10px;padding:18px;margin:14px 0}
-input,button{padding:10px;border-radius:6px;border:1px solid #45566e;background:#0e1723;color:white}
-button{background:#2367a8;cursor:pointer}pre{white-space:pre-wrap;background:#0b1018;padding:14px;border-radius:7px}
-small{color:#a8b5c7}.warn{color:#ffce77}
-</style></head><body><main>
-<h1>IW8 ZoneTool · WASM</h1>
-<p>Browser-side dump preflight for Replay 1.20 map source files.</p>
-<section><h3>1. Select prepared dump folder</h3>
-<input id="folder" type="file" webkitdirectory multiple>
-<p><small>Expected: map entity text, render/material/techset/lighting JSON and optional collision assets.</small></p>
-<label>Map ID <input id="map" value="mp_example"></label>
-<button id="check">Check dump</button></section>
-<section><h3>Report</h3><pre id="out">Loading WebAssembly module…</pre></section>
-<p class="warn">This is the first WASM porting milestone: it validates the input layout. It does not generate or claim to generate native .ff fastfiles yet. Collision baking and the ZoneTool asset serializers still need to be ported.</p>
-</main>
+:root{color-scheme:dark;--bg:#0b1018;--panel:#141e2b;--line:#2a3b50;--blue:#2879bd;--txt:#e7eef8;--muted:#91a3b8}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:14px system-ui;height:100vh;overflow:hidden}
+header{height:54px;display:flex;align-items:center;gap:16px;padding:0 18px;background:#111a26;border-bottom:1px solid var(--line)}
+header b{font-size:16px;color:#8fc8ff}header span{color:var(--muted);font-size:12px}
+.app{height:calc(100vh - 54px);display:grid;grid-template-columns:250px 1fr 270px}
+aside{background:var(--panel);padding:14px;overflow:auto;border-right:1px solid var(--line)}aside.right{border-right:0;border-left:1px solid var(--line)}
+h3{margin:5px 0 12px;font-size:13px;color:#9ccfff;text-transform:uppercase;letter-spacing:.07em}
+.group{border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:14px}
+button,input,select{font:inherit;color:var(--txt);background:#0c1521;border:1px solid #344a63;border-radius:6px;padding:9px}
+button{cursor:pointer}button:hover{border-color:#6ab7ff;background:#172b40}.primary{background:#205f98;border-color:#347db8}
+.tools{display:grid;grid-template-columns:1fr 1fr;gap:7px}.tools button{font-size:12px}
+#view{position:relative;min-width:0;background:#090e16}canvas{display:block;width:100%;height:100%}
+.hint{position:absolute;left:14px;bottom:12px;background:#0a111dcc;border:1px solid #31445a;border-radius:7px;padding:9px 12px;color:#adbdcf;font-size:12px;pointer-events:none}
+.toptools{position:absolute;top:12px;left:12px;display:flex;gap:7px;flex-wrap:wrap}
+.toptools button{background:#111d2bdc}
+label{display:block;color:var(--muted);font-size:12px;margin:8px 0 4px}
+input,select{width:100%}.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#objects{max-height:250px;overflow:auto}.obj{padding:8px;border:1px solid transparent;border-radius:5px;cursor:pointer;color:#c8d5e4}.obj.active{background:#1c3853;border-color:#397cb3}
+#status{white-space:pre-wrap;font-size:12px;color:#a9bdd1;line-height:1.5}
+.warning{color:#f2c77c;font-size:11px;line-height:1.45}
+@media(max-width:900px){.app{grid-template-columns:190px 1fr}.right{display:none}}
+</style></head><body>
+<header><b>IW8 ZoneTool</b><strong>3D Map Editor</strong><span>Prototype navigateur · Replay 1.20</span></header>
+<div class="app">
+<aside><div class="group"><h3>Créer</h3><div class="tools">
+<button id="cube">▧ Bloc</button><button id="wall">▰ Mur</button>
+<button id="ramp">◢ Rampe</button><button id="spawn">⌖ Spawn</button>
+<button id="light">☼ Lumière</button><button id="terrain">▦ Terrain</button>
+</div></div>
+<div class="group"><h3>Objets</h3><div id="objects"></div><button id="delete" style="width:100%;margin-top:8px">Supprimer sélection</button></div>
+<div class="group"><h3>Projet</h3><label>Nom de map</label><input id="mapname" value="mp_custom"><div class="tools" style="margin-top:8px">
+<button id="save" class="primary">Exporter .ztmap.json</button><button id="load">Importer projet</button>
+<button id="exportEntities">Exporter entités</button><button id="reset">Nouvelle map</button>
+</div><input id="file" type="file" accept=".json" hidden></div>
+<div class="group"><h3>WASM</h3><button id="check" class="primary" style="width:100%">Vérifier dump</button><input id="folder" type="file" webkitdirectory multiple style="margin-top:8px"><div id="status">Module WASM non chargé…</div></div>
+</aside>
+<main id="view"><div class="toptools"><button id="grid">Grille: ON</button><button id="home">Vue initiale</button><button id="top">Vue du dessus</button></div><div class="hint">Clic : sélectionner · Glisser : orbiter · Molette : zoom · Suppr : retirer · WASD : déplacer caméra</div></main>
+<aside class="right"><div class="group"><h3>Inspecteur</h3><div id="empty">Sélectionne un objet dans la scène.</div><div id="inspector" hidden>
+<label>Nom</label><input id="name"><div class="row"><div><label>Position X</label><input id="px" type="number" step=".25"></div><div><label>Position Y</label><input id="py" type="number" step=".25"></div></div>
+<div class="row"><div><label>Position Z</label><input id="pz" type="number" step=".25"></div><div><label>Échelle</label><input id="scale" type="number" min=".1" step=".1"></div></div>
+<label>Couleur</label><input id="color" type="color" value="#7893aa"><button id="apply" class="primary" style="width:100%;margin-top:10px">Appliquer</button>
+</div></div>
+<div class="group"><h3>Outils caméra</h3><p style="color:var(--muted);font-size:12px">Maintiens le bouton gauche et déplace la souris pour tourner autour de la map. Utilise la molette pour zoomer.</p></div>
+<div class="group"><h3>Export</h3><p class="warning">Le projet 3D et les entités peuvent être exportés. Les fichiers render/material/techset IW8 et la collision Havok native ne sont pas encore générés : ce projet n'est donc pas encore compilable en .ff.</p></div>
+</aside></div>
 <script type="module">
-import createModule from './zonetool.js';
-const out=document.querySelector('#out');
-const Module=await createModule();
-out.textContent=UTF8ToString(Module._ztw_version());
-const files=new Map();
-document.querySelector('#folder').addEventListener('change',e=>{
- files.clear();
- for(const f of e.target.files){
-   const rel=f.webkitRelativePath.split('/').slice(1).join('/');
-   files.set('/dump/'+rel,f);
- }
- out.textContent=files.size+' files selected. Click Check dump.';
-});
-document.querySelector('#check').addEventListener('click',async()=>{
- const map=document.querySelector('#map').value.trim();
- if(!files.size){out.textContent='Select a dump folder first.';return;}
- for(const [path,file] of files){
-   const dirs=path.split('/').slice(0,-1);let cur='';
-   for(const d of dirs){cur+='/'+d;try{Module.FS.mkdir(cur)}catch{}}
-   Module.FS.writeFile(path,new Uint8Array(await file.arrayBuffer()));
- }
- const ok=Module.ccall('ztw_check_dump','number',['string','string'],['/dump',map]);
- out.textContent=UTF8ToString(Module._ztw_last_report())+'\nResult: '+(ok?'PASS':'FAIL');
-});
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+const view=document.querySelector('#view'),status=document.querySelector('#status'),objectsEl=document.querySelector('#objects');
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x0b1420);scene.fog=new THREE.Fog(0x0b1420,70,180);
+const camera=new THREE.PerspectiveCamera(55,1,.1,1000);let target=new THREE.Vector3(0,0,0),radius=34,az=.75,el=.82;
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;view.prepend(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xc8ddff,0x29313b,2));const sun=new THREE.DirectionalLight(0xffedcf,2.3);sun.position.set(-25,45,20);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);scene.add(sun);
+const grid=new THREE.GridHelper(100,100,0x52718d,0x26384c);scene.add(grid);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(100,100),new THREE.MeshStandardMaterial({color:0x263b35,roughness:1}));floor.rotation.x=-Math.PI/2;floor.position.y=-.08;floor.receiveShadow=true;scene.add(floor);
+const mat=(c)=>new THREE.MeshStandardMaterial({color:c,roughness:.86});
+let items=[],selected=null,nextId=1;
+function add(type,pos=[0,1,0],scale=[1,1,1],color='#7893aa'){
+ let geo,mesh;
+ if(type==='Bloc')geo=new THREE.BoxGeometry(2,2,2);
+ else if(type==='Mur')geo=new THREE.BoxGeometry(6,3,.5);
+ else if(type==='Rampe')geo=new THREE.BoxGeometry(4,.45,3);
+ else if(type==='Spawn')geo=new THREE.CylinderGeometry(.55,.55,.12,24);
+ else if(type==='Lumière')geo=new THREE.SphereGeometry(.35,16,12);
+ else if(type==='Terrain')geo=new THREE.PlaneGeometry(20,20,20,20);
+ mesh=new THREE.Mesh(geo,mat(color));mesh.position.set(...pos);mesh.scale.set(...scale);mesh.castShadow=true;mesh.receiveShadow=true;
+ if(type==='Rampe')mesh.rotation.z=-.28;if(type==='Terrain'){mesh.rotation.x=-Math.PI/2;mesh.position.y=.02;mesh.material.color.set('#526b4a');}
+ if(type==='Spawn'){mesh.material.color.set('#42d5a1');mesh.position.y=.08;}
+ if(type==='Lumière'){mesh.material.color.set('#ffe08a');const l=new THREE.PointLight('#ffe08a',20,18);mesh.add(l);}
+ mesh.userData={id:nextId++,type,name:type+'_'+nextId};scene.add(mesh);items.push(mesh);select(mesh);refresh();return mesh;
+}
+function refresh(){objectsEl.innerHTML='';items.forEach(m=>{const d=document.createElement('div');d.className='obj'+(m===selected?' active':'');d.textContent=m.userData.name+' · '+m.userData.type;d.onclick=()=>select(m);objectsEl.append(d);});}
+function select(m){selected=m;document.querySelector('#empty').hidden=!!m;document.querySelector('#inspector').hidden=!m;if(m){name.value=m.userData.name;px.value=m.position.x;py.value=m.position.y;pz.value=m.position.z;scale.value=m.scale.x;color.value='#'+m.material.color.getHexString();}refresh();}
+function resize(){const w=view.clientWidth,h=view.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();}addEventListener('resize',resize);resize();
+function cameraUpdate(){camera.position.set(target.x+radius*Math.sin(az)*Math.cos(el),target.y+radius*Math.sin(el),target.z+radius*Math.cos(az)*Math.cos(el));camera.lookAt(target);}
+cameraUpdate();let down=false,lastX=0,lastY=0;renderer.domElement.addEventListener('pointerdown',e=>{down=true;lastX=e.clientX;lastY=e.clientY;renderer.domElement.setPointerCapture(e.pointerId);});
+renderer.domElement.addEventListener('pointerup',()=>down=false);renderer.domElement.addEventListener('pointermove',e=>{if(!down)return;az-=(e.clientX-lastX)*.006;el=Math.max(.08,Math.min(1.48,el+(e.clientY-lastY)*.006));lastX=e.clientX;lastY=e.clientY;cameraUpdate();});
+renderer.domElement.addEventListener('wheel',e=>{radius=Math.max(5,Math.min(120,radius+e.deltaY*.035));cameraUpdate();},{passive:true});
+const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();renderer.domElement.addEventListener('click',e=>{if(Math.abs(e.clientX-lastX)+Math.abs(e.clientY-lastY)>5)return;const r=renderer.domElement.getBoundingClientRect();mouse.set((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height)*2+1);ray.setFromCamera(mouse,camera);const hits=ray.intersectObjects(items,false);select(hits.length?hits[0].object:null);});
+function animate(){requestAnimationFrame(animate);renderer.render(scene,camera);}animate();
+cube.onclick=()=>add('Bloc');wall.onclick=()=>add('Mur',[0,1.5,0],[1,1,1],'#8c969f');ramp.onclick=()=>add('Rampe',[0,.4,0],[1,1,1],'#b58b60');spawn.onclick=()=>add('Spawn',[0,.08,0]);light.onclick=()=>add('Lumière',[0,4,0]);terrain.onclick=()=>add('Terrain',[0,0,0]);
+delete.onclick=()=>{if(!selected)return;scene.remove(selected);items=items.filter(x=>x!==selected);select(null);};
+apply.onclick=()=>{if(!selected)return;selected.userData.name=name.value;selected.position.set(+px.value,+py.value,+pz.value);selected.scale.setScalar(Math.max(.1,+scale.value||1));selected.material.color.set(color.value);refresh();};
+addEventListener('keydown',e=>{if(e.key==='Delete'||e.key==='Backspace')delete.click();});
+grid.onclick=()=>{grid.visible=!grid.visible;grid.textContent='Grille: '+(grid.visible?'ON':'OFF');};home.onclick=()=>{radius=34;az=.75;el=.82;target.set(0,0,0);cameraUpdate();};top.onclick=()=>{el=1.48;az=0;cameraUpdate();};
+function project(){return {format:'ztmap',version:1,game:'IW8-Replay-1.20',map:mapname.value,objects:items.map(m=>({id:m.userData.id,type:m.userData.type,name:m.userData.name,position:m.position.toArray(),rotation:[m.rotation.x,m.rotation.y,m.rotation.z],scale:m.scale.toArray(),color:'#'+m.material.color.getHexString()}))};}
+function download(name,data,type='application/json'){const a=document.createElement('a');const u=URL.createObjectURL(new Blob([data],{type}));a.href=u;a.download=name;a.click();URL.revokeObjectURL(u);}
+save.onclick=()=>download((mapname.value||'map')+'.ztmap.json',JSON.stringify(project(),null,2));
+load.onclick=()=>file.click();file.onchange=async()=>{const f=file.files[0];if(!f)return;try{const p=JSON.parse(await f.text());if(p.format!=='ztmap')throw Error('Format inconnu');items.forEach(m=>scene.remove(m));items=[];nextId=1;mapname.value=p.map||'mp_custom';for(const o of p.objects||[]){const m=add(o.type,o.position,o.scale,o.color);m.rotation.set(...(o.rotation||[0,0,0]));m.userData.name=o.name||m.userData.name;}select(null);refresh();status.textContent='Projet chargé : '+items.length+' objets.';}catch(e){status.textContent='Erreur import : '+e.message;}};
+exportEntities.onclick=()=>{let txt='';for(const o of items.filter(x=>x.userData.type==='Spawn'))txt+='{"classname" "mp_tdm_spawn"}\n';txt=txt||'// Aucun spawn ajouté.\n';download((mapname.value||'map')+'_iw8_ents.txt',txt,'text/plain');};
+let module=null,chosen=new Map();try{const {default:createModule}=await import('./zonetool.js');module=await createModule();status.textContent=module.UTF8ToString(module._ztw_version());}catch(e){status.textContent='Module WASM indisponible (éditeur 3D utilisable) : '+e.message;}
+folder.onchange=e=>{chosen.clear();for(const f of e.target.files){const rel=f.webkitRelativePath.split('/').slice(1).join('/');chosen.set('/dump/'+rel,f);}status.textContent=chosen.size+' fichiers du dump sélectionnés.';};
+check.onclick=async()=>{if(!module){status.textContent='WASM non chargé.';return;}if(!chosen.size){status.textContent='Sélectionne le dossier dump.';return;}for(const [path,f] of chosen){let cur='';for(const d of path.split('/').slice(0,-1)){cur+='/'+d;try{module.FS.mkdir(cur)}catch{}}module.FS.writeFile(path,new Uint8Array(await f.arrayBuffer()));}const ok=module.ccall('ztw_check_dump','number',['string','string'],['/dump',mapname.value]);status.textContent=module.UTF8ToString(module._ztw_last_report())+'\nRésultat : '+(ok?'PASS':'FAIL');};
 </script></body></html>
