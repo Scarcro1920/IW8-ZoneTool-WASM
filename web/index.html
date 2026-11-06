@@ -46,7 +46,7 @@ input,select{width:100%}.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 <label>Couleur</label><input id="color" type="color" value="#7893aa"><button id="apply" class="primary" style="width:100%;margin-top:10px">Appliquer</button>
 </div></div>
 <div class="group"><h3>Outils caméra</h3><p style="color:var(--muted);font-size:12px">Maintiens le bouton gauche et déplace la souris pour tourner autour de la map. Utilise la molette pour zoomer.</p></div>
-<div class="group"><h3>Export</h3><p class="warning">Le projet 3D et les entités peuvent être exportés. Les fichiers render/material/techset IW8 et la collision Havok native ne sont pas encore générés : ce projet n'est donc pas encore compilable en .ff.</p></div>
+<div class="group"><h3>Export</h3><p class="warning">L’export Dump génère le render.json, lighting.json et les entités à partir de la géométrie grise. Ajoute un .havok TAG0 valide pour la collision. Les matériaux/textures personnalisés et techsets ne sont pas générés.</p></div>
 </aside></div>
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -75,7 +75,7 @@ function add(type,pos=[0,1,0],scale=[1,1,1],color='#7893aa'){
  mesh.userData={id:nextId++,type,name:type+'_'+nextId};scene.add(mesh);items.push(mesh);select(mesh);refresh();return mesh;
 }
 function refresh(){objectsEl.innerHTML='';items.forEach(m=>{const d=document.createElement('div');d.className='obj'+(m===selected?' active':'');d.textContent=m.userData.name+' · '+m.userData.type;d.onclick=()=>select(m);objectsEl.append(d);});}
-function select(m){selected=m;document.querySelector('#empty').hidden=!!m;document.querySelector('#inspector').hidden=!m;if(m){name.value=m.userData.name;px.value=m.position.x;py.value=m.position.y;pz.value=m.position.z;scale.value=m.scale.x;color.value='#'+m.material.color.getHexString();}refresh();}
+function select(m){selected=m;document.querySelector('#empty').hidden=!!m;document.querySelector('#inspector').hidden=!m;if(m){$('#name').value=m.userData.name;$('#px').value=m.position.x;$('#py').value=m.position.y;$('#pz').value=m.position.z;$('#scale').value=m.scale.x;$('#color').value='#'+m.material.color.getHexString();}refresh();}
 function resize(){const w=view.clientWidth,h=view.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();}addEventListener('resize',resize);resize();
 function cameraUpdate(){camera.position.set(target.x+radius*Math.sin(az)*Math.cos(el),target.y+radius*Math.sin(el),target.z+radius*Math.cos(az)*Math.cos(el));camera.lookAt(target);}
 cameraUpdate();let down=false,lastX=0,lastY=0;renderer.domElement.addEventListener('pointerdown',e=>{down=true;lastX=e.clientX;lastY=e.clientY;renderer.domElement.setPointerCapture(e.pointerId);});
@@ -91,7 +91,7 @@ gridBtn.onclick=()=>{grid.visible=!grid.visible;gridBtn.textContent='Grille: '+(
 function project(){return {format:'ztmap',version:1,game:'IW8-Replay-1.20',map:mapName.value,objects:items.map(m=>({id:m.userData.id,type:m.userData.type,name:m.userData.name,position:m.position.toArray(),rotation:[m.rotation.x,m.rotation.y,m.rotation.z],scale:m.scale.toArray(),color:'#'+m.material.color.getHexString()}))};}
 function download(name,data,type='application/json'){const a=document.createElement('a');const u=URL.createObjectURL(new Blob([data],{type}));a.href=u;a.download=name;a.click();URL.revokeObjectURL(u);}
 saveBtn.onclick=()=>download((mapName.value||'map')+'.ztmap.json',JSON.stringify(project(),null,2));
-loadBtn.onclick=()=>fileInput.click();fileInput.onchange=async()=>{const f=file.files[0];if(!f)return;try{const p=JSON.parse(await f.text());if(p.format!=='ztmap')throw Error('Format inconnu');items.forEach(m=>scene.remove(m));items=[];nextId=1;mapName.value=p.map||'mp_custom';for(const o of p.objects||[]){const m=add(o.type,o.position,o.scale,o.color);m.rotation.set(...(o.rotation||[0,0,0]));m.userData.name=o.name||m.userData.name;}select(null);refresh();status.textContent='Projet chargé : '+items.length+' objets.';}catch(e){status.textContent='Erreur import : '+e.message;}};
+loadBtn.onclick=()=>fileInput.click();fileInput.onchange=async()=>{const f=fileInput.files[0];if(!f)return;try{const p=JSON.parse(await f.text());if(p.format!=='ztmap')throw Error('Format inconnu');items.forEach(m=>scene.remove(m));items=[];nextId=1;mapName.value=p.map||'mp_custom';for(const o of p.objects||[]){const m=add(o.type,o.position,o.scale,o.color);m.rotation.set(...(o.rotation||[0,0,0]));m.userData.name=o.name||m.userData.name;}select(null);refresh();status.textContent='Projet chargé : '+items.length+' objets.';}catch(e){status.textContent='Erreur import : '+e.message;}};
 resetBtn.onclick=()=>{items.forEach(m=>scene.remove(m));items=[];nextId=1;select(null);refresh();};
 function makeEntities(){let lines=['{','"classname" "worldspawn"','"message" "'+(mapName.value||'mp_custom')+'"','}'];for(const m of items.filter(x=>x.userData.type==='Spawn'))lines.push('{','"classname" "mp_tdm_spawn"','"origin" "'+m.position.x.toFixed(3)+' '+m.position.y.toFixed(3)+' '+m.position.z.toFixed(3)+'"','}');return lines.join('\n')+'\n';}
 exportEntitiesBtn.onclick=()=>download((mapName.value||'map')+'_iw8_ents.txt',makeEntities(),'text/plain');
