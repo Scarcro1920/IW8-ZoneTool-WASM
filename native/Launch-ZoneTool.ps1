@@ -28,6 +28,15 @@ function Select-Exe([string]$description) {
   return $dialog.FileName
 }
 
+function Select-Collision([string]$description) {
+  $dialog = New-Object System.Windows.Forms.OpenFileDialog
+  $dialog.Title = $description
+  $dialog.Filter = "MWCOLL collision (*.mwcoll;*.bin)|*.mwcoll;*.bin|All files (*.*)|*.*"
+  $dialog.CheckFileExists = $true
+  if ($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) { return $null }
+  return $dialog.FileName
+}
+
 Write-Host "IW8 ZoneTool — Replay 1.20 map compiler" -ForegroundColor Cyan
 $dump = Select-Folder "Select the prepared map dump folder"
 if (!$dump) { exit 0 }
@@ -40,9 +49,29 @@ if ($map -notmatch '^mp_[a-z0-9_]{1,12}$') {
 $output = Select-Folder "Select the output folder (it must be empty or contain this map's previous output)"
 if (!$output) { exit 0 }
 
-$replay = Select-Exe "Select Replay 1.20 executable (Cancel if dump already contains baked Havok collision)"
+$asset = Join-Path (Join-Path $dump "maps/mp") ($map + ".d3dbsp")
+$required = @(
+  (Join-Path $dump ($map + "_iw8_ents.txt")),
+  ($asset + ".render.json"),
+  ($asset + ".lighting.json")
+)
+$missing = @($required | Where-Object { !(Test-Path $_ -PathType Leaf) })
+if ($missing.Count -gt 0) {
+  Write-Host "Dump incomplet. Fichiers requis absents :" -ForegroundColor Red
+  $missing | ForEach-Object { Write-Host " - $_" }
+  Write-Host "Un paquet *_geometry_staging.zip exporté par le navigateur n'est pas un dump natif compilable." -ForegroundColor Yellow
+  Read-Host "Press Enter to close"
+  exit 2
+}
+
+$replay = Select-Exe "Select the exact Replay 1.20 executable"
+$collision = Select-Collision "Select native MWCOLL collision input (Cancel only if a valid .havok already exists in the dump)"
 $args = @("build-map", $dump, $map, "-o", $output)
 if ($replay) { $args += @("--replay", $replay) }
+if ($collision) {
+  if (!$replay) { throw "Replay executable is required when supplying a native collision input." }
+  $args += @("--collision", $collision)
+}
 
 Write-Host ""
 Write-Host "Launching native compiler..." -ForegroundColor Yellow
@@ -52,8 +81,15 @@ $exitCode = $LASTEXITCODE
 
 Write-Host ""
 if ($exitCode -eq 0) {
-  Write-Host "Build completed. Validate the package with:" -ForegroundColor Green
-  Write-Host ('"{0}" validate-output "{1}" "{2}"' -f $compiler, $output, $map)
+  Write-Host "Build completed. Running output validation..." -ForegroundColor Yellow
+  & $compiler validate-output $output $map
+  $validateCode = $LASTEXITCODE
+  if ($validateCode -eq 0) {
+    Write-Host "SUCCESS: output passed validate-output." -ForegroundColor Green
+  } else {
+    Write-Host "WARNING: build command succeeded, but validate-output failed ($validateCode)." -ForegroundColor Red
+    $exitCode = $validateCode
+  }
 } else {
   Write-Host "Build failed with exit code $exitCode. Read the compiler output above." -ForegroundColor Red
 }
