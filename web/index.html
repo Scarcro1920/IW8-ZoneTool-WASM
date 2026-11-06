@@ -36,7 +36,7 @@ input,select{width:100%}.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 <button id="save" class="primary">Exporter .ztmap.json</button><button id="load">Importer projet</button>
 <button id="exportEntities">Exporter entités</button><button id="reset">Nouvelle map</button>
 </div><input id="file" type="file" accept=".json" hidden></div>
-<div class="group"><h3>WASM</h3><button id="check" class="primary" style="width:100%">Vérifier dump</button><input id="folder" type="file" webkitdirectory multiple style="margin-top:8px"><div id="status">Module WASM non chargé…</div></div>
+<div class="group"><h3>Replay 1.20</h3><label>Sélectionner game_dx12_ship_replay.exe</label><input id="replayExe" type="file" accept=".exe,application/vnd.microsoft.portable-executable"><div id="replayStatus" class="warning">Aucun exécutable sélectionné.</div><p class="warning">Le navigateur peut vérifier le fichier, mais ne peut pas exécuter un EXE Windows. Le pont natif local pour lancer le compilateur reste à intégrer.</p></div>\n<div class="group"><h3>WASM</h3><button id="check" class="primary" style="width:100%">Vérifier dump</button><input id="folder" type="file" webkitdirectory multiple style="margin-top:8px"><div id="status">Module WASM non chargé…</div></div>
 </aside>
 <main id="view"><div class="toptools"><button id="grid">Grille: ON</button><button id="home">Vue initiale</button><button id="top">Vue du dessus</button></div><div class="hint">Clic : sélectionner · Glisser : orbiter · Molette : zoom · Suppr : retirer · WASD : déplacer caméra</div></main>
 <aside class="right"><div class="group"><h3>Inspecteur</h3><div id="empty">Sélectionne un objet dans la scène.</div><div id="inspector" hidden>
@@ -50,7 +50,7 @@ input,select{width:100%}.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 const $=s=>document.querySelector(s);const view=$('#view'),status=$('#status'),objectsEl=$('#objects');
-const cubeBtn=$('#cube'),wallBtn=$('#wall'),rampBtn=$('#ramp'),spawnBtn=$('#spawn'),lightBtn=$('#light'),terrainBtn=$('#terrain'),removeBtn=$('#delete'),mapName=$('#mapname'),fileInput=$('#file'),folderInput=$('#folder'),checkBtn=$('#check'),exportEntitiesBtn=$('#exportEntities'),gridBtn=$('#grid'),homeBtn=$('#home'),topBtn=$('#top'),saveBtn=$('#save'),loadBtn=$('#load'),resetBtn=$('#reset');
+const cubeBtn=$('#cube'),wallBtn=$('#wall'),rampBtn=$('#ramp'),spawnBtn=$('#spawn'),lightBtn=$('#light'),terrainBtn=$('#terrain'),removeBtn=$('#delete'),mapName=$('#mapname'),fileInput=$('#file'),folderInput=$('#folder'),checkBtn=$('#check'),exportEntitiesBtn=$('#exportEntities'),replayExeInput=$('#replayExe'),replayStatus=$('#replayStatus'),gridBtn=$('#grid'),homeBtn=$('#home'),topBtn=$('#top'),saveBtn=$('#save'),loadBtn=$('#load'),resetBtn=$('#reset');
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x0b1420);scene.fog=new THREE.Fog(0x0b1420,70,180);
 const camera=new THREE.PerspectiveCamera(55,1,.1,1000);let target=new THREE.Vector3(0,0,0),radius=34,az=.75,el=.82;
 const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;view.prepend(renderer.domElement);
@@ -93,7 +93,21 @@ saveBtn.onclick=()=>download((mapName.value||'map')+'.ztmap.json',JSON.stringify
 loadBtn.onclick=()=>fileInput.click();fileInput.onchange=async()=>{const f=file.files[0];if(!f)return;try{const p=JSON.parse(await f.text());if(p.format!=='ztmap')throw Error('Format inconnu');items.forEach(m=>scene.remove(m));items=[];nextId=1;mapName.value=p.map||'mp_custom';for(const o of p.objects||[]){const m=add(o.type,o.position,o.scale,o.color);m.rotation.set(...(o.rotation||[0,0,0]));m.userData.name=o.name||m.userData.name;}select(null);refresh();status.textContent='Projet chargé : '+items.length+' objets.';}catch(e){status.textContent='Erreur import : '+e.message;}};
 resetBtn.onclick=()=>{items.forEach(m=>scene.remove(m));items=[];nextId=1;select(null);refresh();};
 exportEntitiesBtn.onclick=()=>{let txt='';for(const o of items.filter(x=>x.userData.type==='Spawn'))txt+='{"classname" "mp_tdm_spawn"}\n';txt=txt||'// Aucun spawn ajouté.\n';download((mapName.value||'map')+'_iw8_ents.txt',txt,'text/plain');};
-let module=null,chosen=new Map();try{const {default:createModule}=await import('./zonetool.js');module=await createModule();status.textContent=module.UTF8ToString(module._ztw_version());}catch(e){status.textContent='Module WASM indisponible (éditeur 3D utilisable) : '+e.message;}
+let module=null,chosen=new Map(),replayFile=null;
+const replaySha256='68fb1cbcb2924182724004039de55a4c50152bb6561803c4898b7930b38132f0';
+replayExeInput.onchange=async e=>{
+ replayFile=e.target.files?.[0]||null;
+ if(!replayFile){replayStatus.textContent='Aucun exécutable sélectionné.';return;}
+ replayStatus.textContent='Vérification SHA-256…';
+ try{
+  const bytes=await replayFile.arrayBuffer();
+  const digest=await crypto.subtle.digest('SHA-256',bytes);
+  const hash=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,'0')).join('');
+  if(hash===replaySha256) replayStatus.textContent='Replay reconnu : version 1.20.4.7623265. Fichier local sélectionné.';
+  else replayStatus.textContent='Fichier sélectionné, mais SHA-256 différent. Le collision baker ZoneTool attend Replay 1.20.4.7623265.';
+ }catch(err){replayStatus.textContent='Impossible de vérifier le fichier : '+err.message;}
+};
+try{const {default:createModule}=await import('./zonetool.js');module=await createModule();status.textContent=module.UTF8ToString(module._ztw_version());}catch(e){status.textContent='Module WASM indisponible (éditeur 3D utilisable) : '+e.message;}
 folderInput.onchange=e=>{chosen.clear();for(const f of e.target.files){const rel=f.webkitRelativePath.split('/').slice(1).join('/');chosen.set('/dump/'+rel,f);}status.textContent=chosen.size+' fichiers du dump sélectionnés.';};
 checkBtn.onclick=async()=>{if(!module){status.textContent='WASM non chargé.';return;}if(!chosen.size){status.textContent='Sélectionne le dossier dump.';return;}for(const [path,f] of chosen){let cur='';for(const d of path.split('/').slice(0,-1)){cur+='/'+d;try{module.FS.mkdir(cur)}catch{}}module.FS.writeFile(path,new Uint8Array(await f.arrayBuffer()));}const ok=module.ccall('ztw_check_dump','number',['string','string'],['/dump',mapName.value]);status.textContent=module.UTF8ToString(module._ztw_last_report())+'\nRésultat : '+(ok?'PASS':'FAIL');};
 </script></body></html>
