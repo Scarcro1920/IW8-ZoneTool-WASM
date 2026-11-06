@@ -42,8 +42,6 @@ EMSCRIPTEN_KEEPALIVE int ztw_check_dump(const char* root, const char* mapName) {
     const std::string asset = map + ".d3dbsp";
     const fs::path ents = dir / (map + "_iw8_ents.txt");
     const fs::path renderPath = mp / (asset + ".render.json");
-    const fs::path materialPath = mp / (asset + ".material.json");
-    const fs::path techsetPath = mp / (asset + ".techset.json");
     const fs::path lightingPath = mp / (asset + ".lighting.json");
     const fs::path havokPath = mp / (asset + ".havok");
 
@@ -58,15 +56,15 @@ EMSCRIPTEN_KEEPALIVE int ztw_check_dump(const char* root, const char* mapName) {
     };
     check(ents, "entités IW8");
     check(renderPath, "render.json");
-    check(materialPath, "material.json");
-    check(techsetPath, "techset.json");
     check(lightingPath, "lighting.json");
-    check(havokPath, "collision Havok Replay TAG0");
+    const bool hasHavok = is_file(havokPath);
+    g_report += (hasHavok ? "[OK] " : "[OPTIONNEL] ");
+    g_report += "collision .havok (sinon fournir Replay + MWCOLL au compilateur natif)\\n";
 
     const std::string render = read_text(renderPath);
     if (!render.empty()) {
         const std::vector<std::string> keys = {
-            "materialDefinition", "surfaces", "dpvs", "reflectionProbes",
+            "material", "surfaces", "dpvs", "reflectionProbes",
             "reflectionProbeArrayImage"
         };
         for (const auto& key : keys) {
@@ -96,7 +94,7 @@ EMSCRIPTEN_KEEPALIVE int ztw_check_dump(const char* root, const char* mapName) {
         g_report += "Structure et champs requis présents. La compilation native et validate-output restent obligatoires : ce contrôle ne certifie pas les données binaires, les références de shaders, les textures ni la validité du Havok.\n";
         return 1;
     }
-    g_report += "DUMP INCOMPLET : ne pas lancer build-map. L'éditeur web actuel exporte une géométrie grise de préparation, pas encore tous les assets natifs requis.\n";
+    g_report += "DUMP INCOMPLET : corrige les champs ou fichiers signalés avant la compilation native.\n";
     return 0;
 }
 EMSCRIPTEN_KEEPALIVE const char* ztw_last_report() { return g_report.c_str(); }
