@@ -17,7 +17,7 @@ Place `Launch-ZoneTool.ps1` beside `iw8-zonetool.exe`, then run it in Windows Po
 iw8-zonetool.exe build-map <dump> <map> -o <output> [--replay <Replay.exe>]
 ```
 
-The dump must follow the original [INPUT_FORMAT.md](../docs/INPUT_FORMAT.md) schema and include valid IW8 material/techset data and either a prepared Replay Havok file or native collision inputs as required. Choosing Replay does not magically create missing render/material/techset assets.
+The dump must follow the original the `INPUT_FORMAT.md` file included in the downloaded compiler artifact schema and include valid IW8 material/techset data and either a prepared Replay Havok file or native collision inputs as required. Choosing Replay does not magically create missing render/material/techset assets.
 
 After building, validate the package:
 
