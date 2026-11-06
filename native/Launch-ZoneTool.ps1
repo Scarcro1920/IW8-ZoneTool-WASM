@@ -64,14 +64,33 @@ if ($missing.Count -gt 0) {
   exit 2
 }
 
-$replay = Select-Exe "Select the exact Replay 1.20 executable"
-$collision = Select-Collision "Select native MWCOLL collision input (Cancel only if a valid .havok already exists in the dump)"
-$args = @("build-map", $dump, $map, "-o", $output)
-if ($replay) { $args += @("--replay", $replay) }
-if ($collision) {
-  if (!$replay) { throw "Replay executable is required when supplying a native collision input." }
-  $args += @("--collision", $collision)
+# This editor/exporter targets the exact Replay executable supplied with the project.
+$replay = Select-Exe "Select game_dx12_ship_replay.exe (Replay 1.20.4)"
+if (!$replay) {
+  Write-Host "Replay is required to bake the generated MWCOLL12 collision." -ForegroundColor Red
+  Read-Host "Press Enter to close"
+  exit 2
 }
+$expectedReplaySha256 = "68fb1cbcb2924182724004039de55a4c50152bb6561803c4898b7930b38132f0"
+$actualReplaySha256 = (Get-FileHash -LiteralPath $replay -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actualReplaySha256 -ne $expectedReplaySha256) {
+  throw "Wrong Replay executable. SHA-256: $actualReplaySha256. This project requires the supplied Replay 1.20.4 build ($expectedReplaySha256)."
+}
+
+# Prefer the MWCOLL12 file created by the browser export. Only open a picker if it is absent.
+$packagedCollision = Join-Path (Join-Path $dump "maps/mp") ($map + ".d3dbsp.mwcoll")
+if (Test-Path $packagedCollision -PathType Leaf) {
+  $collision = $packagedCollision
+  Write-Host "Using exported collision: $collision" -ForegroundColor Green
+} else {
+  $collision = Select-Collision "Select MWCOLL02-MWCOLL12 collision input"
+}
+if (!$collision) {
+  Write-Host "No MWCOLL input selected. A valid prebuilt .havok must already exist in the dump." -ForegroundColor Yellow
+}
+
+$args = @("build-map", $dump, $map, "-o", $output, "--replay", $replay)
+if ($collision) { $args += @("--collision", $collision) }
 
 Write-Host ""
 Write-Host "Launching native compiler..." -ForegroundColor Yellow
