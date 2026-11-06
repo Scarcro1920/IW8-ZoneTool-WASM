@@ -1,13 +1,17 @@
-# IW8 ZoneTool WASM — bootstrap milestone
+# IW8 ZoneTool WASM — état du port
 
-This repository now contains a reproducible Emscripten build and a browser-side dump preflight tool.
+## Éditeur 3D ajouté
+L'interface web inclut maintenant un éditeur de scène 3D Three.js :
+- vue 3D orbitale, zoom, grille et éclairage;
+- création de blocs, murs, rampes, points de spawn, lumières et terrain;
+- sélection, déplacement par coordonnées, échelle, couleur et suppression;
+- sauvegarde/import d'un projet `.ztmap.json`;
+- export préliminaire d'un fichier d'entités.
 
-## Implemented
-- Compiles `wasm/wasm_main.cpp` into `zonetool.js` and `zonetool.wasm`.
-- Browser UI selects a prepared dump folder.
-- WASM checks for entity, render, material, techset and lighting input files.
+Le projet `.ztmap.json` est le format de travail de l'éditeur. Il n'est pas encore un dump ZoneTool natif prêt à compiler.
 
-## Not implemented
-This is **not yet the native ZoneTool `build-map` compiler**. It does not serialize IW8 assets or produce valid Replay 1.20 fastfiles. Windows APIs, DirectX-related code, and Replay/Havok collision baking still require a proper port. Do not treat the preflight PASS as a compiled map.
+## WASM actuel
+Le module Emscripten compile `wasm/wasm_main.cpp` et vérifie la présence des fichiers d'entrée attendus pour une map. Il ne sérialise pas encore les assets IW8 et ne produit pas de fastfiles.
 
-Run GitHub Actions → **Build IW8 ZoneTool WASM bootstrap**. Download `IW8-ZoneTool-WASM-bootstrap` and serve the files over HTTP(S) so the browser can load the ES module and WASM binary.
+## Prochaine étape technique
+Porter les sérialiseurs IW8 utilisés par `build-map`, convertir la géométrie de l'éditeur vers le schéma render IW8, générer des définitions material/techset valides, puis traiter la collision Havok Replay. La compilation .ff ne doit être annoncée qu'après validation dans Replay 1.20.
