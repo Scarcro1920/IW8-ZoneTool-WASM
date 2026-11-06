@@ -58,7 +58,8 @@ EMSCRIPTEN_KEEPALIVE int ztw_check_dump(const char* root, const char* mapName) {
     check(ents, "entités IW8");
     check(renderPath, "render.json");
     check(lightingPath, "lighting.json");
-    const bool hasCollision = is_file(havokPath) || is_file(mwcollPath);
+    const bool hasHavok = is_file(havokPath);
+    const bool hasCollision = hasHavok || is_file(mwcollPath);
     g_report += (hasCollision ? "[OK] " : "[OPTIONNEL] ");
     g_report += hasHavok ? "collision .havok présente\\n" :
                 is_file(mwcollPath) ? "entrée MWCOLL présente (bake Replay requis)\\n" :
