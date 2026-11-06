@@ -1,0 +1,31 @@
+name: Build IW8 ZoneTool WASM bootstrap
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "wasm/**"
+      - "web/**"
+      - ".github/workflows/build-wasm.yml"
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Install Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.64
+      - name: Compile WebAssembly module
+        run: |
+          mkdir -p dist
+          em++ wasm/wasm_main.cpp -O2 -std=c++17             -sWASM=1 -sMODULARIZE=1 -sEXPORT_ES6=1             -sENVIRONMENT=web -sALLOW_MEMORY_GROWTH=1             -sFORCE_FILESYSTEM=1             -sEXPORTED_FUNCTIONS='["_ztw_version","_ztw_check_dump","_ztw_last_report","_malloc","_free"]'             -sEXPORTED_RUNTIME_METHODS='["ccall","FS"]'             -o dist/zonetool.js
+          cp web/index.html dist/index.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IW8-ZoneTool-WASM-bootstrap
+          path: dist/
